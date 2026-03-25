@@ -1,0 +1,12 @@
+# Data files from data folder
+data/raw/*
+
+# Large data files
+*.h5ad
+
+# Environment files
+.env
+
+# OS / editor
+.DS_Store
+.vscode/

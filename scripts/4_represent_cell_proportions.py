@@ -2,9 +2,10 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
+from pathlib import Path
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 import os
-
-os.chdir("/Users/cristinali/Documents/Programming/PhD/onco_ifn")
+os.chdir(PROJECT_ROOT)
 
 prop_path = "results/umap_percentages.xlsx"
 

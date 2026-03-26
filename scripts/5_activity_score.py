@@ -10,7 +10,10 @@ from matplotlib.ticker import MultipleLocator
 import seaborn as sns
 # import harmonypy as hm
 
-os.chdir("/Users/cristinali/Documents/Programming/PhD/onco_ifn")
+from pathlib import Path
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+import os
+os.chdir(PROJECT_ROOT)
 
 # Allow importing local packages from src/ without pip installation (temporary solution for development)
 src_path = os.path.abspath("src")

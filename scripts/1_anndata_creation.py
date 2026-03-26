@@ -2,9 +2,11 @@ import anndata as ad
 import numpy as np
 import pandas as pd
 import scanpy as sc
-import os
 
-os.chdir("/Users/cristinali/Documents/Programming/PhD/onco_ifn")
+from pathlib import Path
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+import os
+os.chdir(PROJECT_ROOT)
 
 # Objective: Create an AnnData object for each sample, and then concatenate them into a single AnnData object for the whole dataset.
 

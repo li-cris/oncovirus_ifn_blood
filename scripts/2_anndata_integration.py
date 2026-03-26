@@ -2,11 +2,12 @@ import anndata as ad
 import numpy as np
 import pandas as pd
 import scanpy as sc
-import os
 import random
-# import harmonypy as hm
 
-os.chdir("/Users/cristinali/Documents/Programming/PhD/onco_ifn")
+from pathlib import Path
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+import os
+os.chdir(PROJECT_ROOT)
 
 from src.sctype.sctype_py import gene_sets_prepare, sctype_score, process_cluster, get_gene_symbols
 from src.integration.tools import run_harmony

@@ -1,9 +1,12 @@
 import anndata as ad
 import numpy as np
 import pandas as pd
-import os
 
-os.chdir("/Users/cristinali/Documents/Programming/PhD/onco_ifn")
+from pathlib import Path
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+import os
+os.chdir(PROJECT_ROOT)
+
 # add src to temporary path to import the functions for gene name conversion
 import sys
 sys.path.insert(0, ".") # temporary, should do something else when doing this

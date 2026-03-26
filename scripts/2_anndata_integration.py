@@ -9,6 +9,7 @@ import random
 os.chdir("/Users/cristinali/Documents/Programming/PhD/onco_ifn")
 
 from src.sctype.sctype_py import gene_sets_prepare, sctype_score, process_cluster, get_gene_symbols
+from src.integration.tools import run_harmony
 from src.visualization.umap import plot_umap_with_subset_percentages
 
 # Objective: Do the necessary processing of the individual AnnData objects to prepare them for integration, and then perform the integration using Scanpy's integration functions.
@@ -117,19 +118,14 @@ sc.tl.pca(adata)
 # --------------------------------- #
 
 # Run Harmony and ensure the embedding has one row per cell (n_obs x n_pcs).
-import harmonypy as hm
-ho = hm.run_harmony(adata.obsm["X_pca"], adata.obs, "batch", max_iter_harmony=20, max_iter_kmeans=20, sigma=0.1, theta=2, nclust=50, verbose=True)
-x_pca_harmony = np.asarray(ho.Z_corr)
-
-if x_pca_harmony.shape[0] != adata.n_obs and x_pca_harmony.shape[1] == adata.n_obs:
-    x_pca_harmony = x_pca_harmony.T
-
-if x_pca_harmony.shape[0] != adata.n_obs:
-    raise ValueError(
-        f"Harmony output has unexpected shape {x_pca_harmony.shape}; expected first dimension {adata.n_obs}."
-    )
-
-adata.obsm["X_pca_harmony"] = x_pca_harmony
+adata.obsm["X_pca_harmony"] = run_harmony(adata,
+                                          batch_key="batch",
+                                          max_iter_harmony=20,
+                                          max_iter_kmeans=20,
+                                          sigma=0.1,
+                                          theta=2,
+                                          nclust=50,
+                                          verbose=True)
 
 # sc.pp.neighbors(adata, n_neighbors=20, n_pcs=10,use_rep="X_pca")
 sc.pp.neighbors(adata, use_rep="X_pca_harmony", n_neighbors=20, n_pcs=10)

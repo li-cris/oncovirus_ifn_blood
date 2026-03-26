@@ -1,12 +1,17 @@
-from typing import Optional, Sequence
+from typing import Optional, Sequence, Union
 
 import numpy as np
 import pandas as pd
 import scanpy as sc
 from anndata import AnnData
-from scanpy._utils import AnyRandom, _check_use_raw
+from numpy.random import Generator, RandomState
+from scanpy._utils import _check_use_raw
+# Some corrections above
 
 from signaturescoring.utils.utils import nanmean
+
+# Scanpy no longer exports AnyRandom in some versions.
+AnyRandom = Union[int, RandomState, Generator, None]
 
 
 def score_genes(

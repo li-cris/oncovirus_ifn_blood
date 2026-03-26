@@ -5,6 +5,8 @@ import scanpy as sc
 import os
 import random
 import sys
+import matplotlib.pyplot as plt
+from matplotlib.ticker import MultipleLocator
 import seaborn as sns
 # import harmonypy as hm
 
@@ -19,6 +21,7 @@ from src.sctype.sctype_py import gene_sets_prepare, sctype_score, process_cluste
 from src.visualization.umap import plot_umap_with_subset_percentages
 from src.integration.tools import run_harmony
 from src.utils import check_missing_genes
+from src.visualization.signatures import reorder_stats_significance, plot_score_on_violin
 from signaturescoring import score_signature
 
 # Objective: Score cells for a specific gene signature using local signaturescoring package
@@ -166,8 +169,62 @@ color_map = dict(zip(celltypes, palette))
 plot_umap_with_subset_percentages(adata, "LTS", 1, label_colormap=color_map, label_types=celltypes)
 plot_umap_with_subset_percentages(adata, "LTS", 0, label_colormap=color_map, label_types=celltypes)
 
-
 # ============================================================================
 # Step 6: Plot violin plots of signature scores across cell types
 # ============================================================================
+# %%
+# adata.obs["sctype_classification"] is what I need
+# Violin plot: x-axis are cell types, y-axis are signature scores; show LTS or STS group for each cell type
+# Legend: "LTS" if 1 and "STS" if 0
+adata.obs["OS_label"] = adata.obs["LTS"].map({1: "LTS", 0: "STS"})
+my_palette = {"LTS": "#20BDA9", "STS": "#BD2035"}
+hue_order = ["LTS", "STS"]
+celltype_order = (
+    adata.obs.groupby("sctype_classification")["signature_score"]
+    .median()
+    .sort_values(ascending=False)
+    .index
+    .tolist()
+)
+plot_score_on_violin(adata, celltype_order, hue_order=hue_order, my_palette=my_palette, plot_sig=False)
+
+# %%
+# ============================================================================
+# Step 7: Statistical testing of signature scores between LTS and STS for each cell type
+# ============================================================================
+
+# For each cell type, perform a Mann-Whitney U test comparing signature scores between LTS and STS groups
+from scipy.stats import mannwhitneyu
+results = []
+for cell_type in celltype_order:
+    subset = adata.obs[adata.obs["sctype_classification"] == cell_type]
+    lts_scores = subset[subset["OS_label"] == "LTS"]["signature_score"]
+    sts_scores = subset[subset["OS_label"] == "STS"]["signature_score"]
+    
+    if len(lts_scores) > 0 and len(sts_scores) > 0:
+        stat, p_value = mannwhitneyu(lts_scores, sts_scores, alternative="two-sided")
+        results.append((cell_type, stat, p_value))
+    else:
+        results.append((cell_type, np.nan, np.nan))
+stats_df = pd.DataFrame(results, columns=["cell_type", "Mann-Whitney U", "p-value"])
+print(stats_df)
+
+# %%
+# ============================================================================
+# Step 8: Add significance starts to plot above each group based on stats_df
+# ============================================================================
+adata.obs["OS_label"] = adata.obs["LTS"].map({1: "LTS", 0: "STS"})
+my_palette = {"LTS": "#20BDA9", "STS": "#BD2035"}
+hue_order = ["LTS", "STS"]
+celltype_order = (
+    adata.obs.groupby("sctype_classification")["signature_score"]
+    .median()
+    .sort_values(ascending=False)
+    .index
+    .tolist()
+)
+stats_df = reorder_stats_significance(stats_df, celltype_order)
+plot_score_on_violin(adata, celltype_order, hue_order=hue_order, my_palette=my_palette, plot_sig=True, stats_df=stats_df)
+
+
 # %%

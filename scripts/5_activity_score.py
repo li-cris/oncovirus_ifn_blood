@@ -5,8 +5,6 @@ import scanpy as sc
 import os
 import random
 import sys
-import matplotlib.pyplot as plt
-from matplotlib.ticker import MultipleLocator
 import seaborn as sns
 # import harmonypy as hm
 
@@ -23,7 +21,7 @@ if src_path not in sys.path:
 from src.sctype.sctype_py import gene_sets_prepare, sctype_score, process_cluster, get_gene_symbols
 from src.visualization.umap import plot_umap_with_subset_percentages
 from src.integration.tools import run_harmony
-from src.utils import check_missing_genes
+from src.utils import check_missing_genes, run_sctype_scoring
 from src.visualization.signatures import reorder_stats_significance, plot_score_on_violin
 from signaturescoring import score_signature
 
@@ -134,30 +132,21 @@ sc.pl.umap(
 )
 
 # %%
-scRNAseqData=scaled_data
-gs_list=gene_sets_prepare(path_to_db_file="https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/ScTypeDB_full.xlsx",cell_type="Immune system")
-# Just in case, also update identifiers in scRNAseqData to match updates gene names
-es_max = sctype_score(scRNAseqData = scRNAseqData, scaled = True, gs = gs_list['gs_positive'], gs2 = gs_list['gs_negative'])
 
-unique_clusters = adata.obs['leiden'].unique() # are we sure it's leiden?
-# Apply the function to each unique cluster and combine the results into a DataFrame
-cL_results = pd.concat([process_cluster(cluster,adata,es_max,'leiden') for cluster in unique_clusters])
+from dataclasses import dataclass
+@dataclass
+class ScTypeOptions:
+    """Class for keeping track of ScType options."""
+    path_to_db_file: str = "https://raw.githubusercontent.com/IanevskiAleksandr/sc-type/master/ScTypeDB_full.xlsx"
+    cell_type: str = "Immune system" # Annotates cells from immune system
+    scaled: bool =  True # Whether to use scaled data for scoring (True) or raw data (False)
+    gene_names_to_uppercase: bool = True 
+    cluster_key: str = 'leiden' # Type of clustering used and name in adata.obs[cluster_key]
+    unknown_threshold: float = 0.25 # Threshold for setting low-confidence clusters to "Unknown" based on ncells
 
-# Group by cluster and select the top row based on scores
-sctype_scores = cL_results.groupby('cluster').apply(lambda x: x.nlargest(1, 'scores')).reset_index(drop=True)
-
-# Set low-confidence clusters to "Unknown"
-sctype_scores.loc[sctype_scores['scores'] < sctype_scores['ncells'] / 4, 'type'] = 'Unknown'
-
-# Iterate over unique clusters
-adata.obs['sctype_classification'] = ""
-for cluster in sctype_scores['cluster'].unique():
-    # Filter sctype_scores for the current cluster
-    cl_type = sctype_scores[sctype_scores['cluster'] == cluster]
-    # Get the type for the current cluster
-    cl_type_value = cl_type['type'].iloc[0]
-    # Update 'sctype_classification' in pbmc.obs for cells belonging to the current cluster
-    adata.obs.loc[adata.obs['leiden'] == cluster, 'sctype_classification'] = cl_type_value
+scRNAseqData=scaled_data.copy() # Just to be safe, don't modify the original scaled_data
+SctypeOptions = ScTypeOptions()
+adata = run_sctype_scoring(scRNAseqData, adata, SctypeOptions=SctypeOptions)
 
 # %%
 # ============================================================================

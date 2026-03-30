@@ -18,7 +18,7 @@ src_path = os.path.abspath("src")
 if src_path not in sys.path:
     sys.path.insert(0, src_path)
 
-from src.sctype.sctype_py import gene_sets_prepare, sctype_score, process_cluster, get_gene_symbols
+from src.sctype.sctype_py import get_gene_symbols
 from src.visualization.umap import plot_umap_with_subset_percentages
 from src.integration.tools import run_harmony
 from src.utils import check_missing_genes, run_sctype_scoring

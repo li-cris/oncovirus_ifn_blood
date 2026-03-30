@@ -1,11 +1,14 @@
-pandas
 numpy
+pandas
+matplotlib
+scanpy
+anndata
 scanpy
 scikit-learn
-matplotlib
 seaborn
-anndata
 statsmodels
 scipy
 biopython
 tqdm
+pydeseq2
+ipykernel

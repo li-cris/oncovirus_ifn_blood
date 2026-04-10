@@ -6,7 +6,7 @@ import os
 import random
 import sys
 import seaborn as sns
-
+import matplotlib.pyplot as plt
 
 from pydeseq2.dds import DeseqDataSet
 from pydeseq2.default_inference import DefaultInference
@@ -22,6 +22,7 @@ src_path = os.path.abspath("src")
 if src_path not in sys.path:
     sys.path.insert(0, src_path)
 
+from src.visualization.differential_expression import volcano_plot, ma_plot
 
 # A count matrix of shape ‘number of samples’ x ‘number of genes’, containing read counts (non-negative integers),
 # Metadata (or “column” data) of shape ‘number of samples’ x ‘number of variables’, containing sample annotations that will be used to split the data in cohorts.
@@ -41,19 +42,6 @@ sc.pp.filter_genes(adata, min_cells=100) # Tutorial is 10; I also used min_cells
 
 counts_df = pd.DataFrame(adata.X.toarray(), index=adata.obs_names, columns=adata.var_names)
 metadata_df = pd.DataFrame(adata.obs.copy())
-
-
-# if not os.path.exists("results/approved_genes.csv"):
-#     list_of_genes = adata.var["HUGO_symbol"].values
-#     approved_genes = get_gene_symbols(list_of_genes)  # Returns DF with approved symbols
-#     approved_genes.to_csv("results/approved_genes.csv", sep="\t", index=False)
-# else:
-#     approved_genes = pd.read_csv("results/approved_genes.csv", sep="\t")
-
-# # Map gene names to approved symbols
-# gene_name_mapping = dict(zip(approved_genes["Gene"], approved_genes["Symbol"]))
-# adata.var["approved_gene"] = adata.var["HUGO_symbol"].map(gene_name_mapping).fillna(adata.var["HUGO_symbol"])
-
 
 # ============================================================================
 # Step 1.5: Turn into pseudobulk based on "og_id"
@@ -90,80 +78,43 @@ ds = DeseqStats(dds, contrast=["LTS", 1, 0], inference=inference)
 ds.summary()
 
 
-
 # ============================================================================
 # Step 3: Check results and do some basic filtering for significant genes
 # ============================================================================
 
 res = ds.results_df.copy()
 
-res["significant"] = (res["padj"] < 0.05) & (res["log2FoldChange"].abs() > 1)
+res["significant"] = (res["padj"] < 0.05) & (res["log2FoldChange"].abs() > 1) # Significant genes with a change of at least 2-fold (log2FC > 1 or < -1)
 res["direction"] = "NS"
 res.loc[(res["padj"] < 0.05) & (res["log2FoldChange"] > 1), "direction"] = "Up"
 res.loc[(res["padj"] < 0.05) & (res["log2FoldChange"] < -1), "direction"] = "Down"
 
-
-
-
-import numpy as np
-import matplotlib.pyplot as plt
-
-res["minus_log10_padj"] = -np.log10(res["padj"])
-
-plt.figure(figsize=(8,6))
-
-for group, color in [("NS", "lightgray"), ("Up", "red"), ("Down", "blue")]:
-    subset = res[res["direction"] == group]
-    plt.scatter(
-        subset["log2FoldChange"],
-        subset["minus_log10_padj"],
-        s=10,
-        alpha=0.7,
-        label=group,
-        c=color
-    )
-
-plt.axvline(1, linestyle="--")
-plt.axvline(-1, linestyle="--")
-plt.axhline(-np.log10(0.05), linestyle="--")
-plt.xlabel("log2 Fold Change")
-plt.ylabel("-log10 adjusted p-value")
-plt.legend()
-plt.title("Volcano plot")
-plt.show()
-# 
+volcano_plot(res)
+ma_plot(res)
 
 # %%
-plt.figure(figsize=(8,6))
-plt.scatter(res["baseMean"], res["log2FoldChange"], s=10, alpha=0.5)
-plt.xscale("log")
-plt.axhline(0, linestyle="--")
-plt.xlabel("Mean normalized expression")
-plt.ylabel("log2 Fold Change")
-plt.title("MA plot")
-plt.show()
 
-# %%
-import requests
+# ============================================================================
+# Step 4: Turn ENSEMBL IDs to gene symbols for enrichment analysis
+# ============================================================================
 
-def ensembl_to_hgnc(ensembl_id, session=None, timeout=30, cache=None):
-    """Map Ensembl gene ID to HGNC symbol using HGNC REST API."""
-    if cache is None:
-        cache = {}
-    
-    if ensembl_id in cache:
-        return cache[ensembl_id]
-    
-    url = f"https://rest.genenames.org/search/ensembl_gene_id/{ensembl_id}"
-    headers = {"Accept": "application/json"}
-    http = session or requests
-    
-    response = http.get(url, headers=headers, timeout=timeout)
-    response.raise_for_status()
-    result = response.json()
-    
-    cache[ensembl_id] = result
-    return result
+# Full dictionary in "data/ens_hg_dict.tsv", col 1 is ENSEMBL ID, col2 is gene symbol. This is a bit faster than using the HGNC API for each gene
+# Get gene symbols
+ens_hg_dict = pd.read_csv("data/ens_hg_dict.tsv", sep="\t", header=None, names=["ensembl_id", "gene_symbol"])
+
+# Get res["gene_symbol"] by mapping res.index (which is ENSEMBL ID) to ens_hg_dict
+res["gene_symbol"] = res.index.map(ens_hg_dict.set_index("ensembl_id")["gene_symbol"])
 
 
-dds.var["hgnc_symbol"] = dds.var_names.map(lambda x: ensembl_to_hgnc(x)["response"]["docs"][0]["symbol"] if ensembl_to_hgnc(x)["response"]["numFound"] > 0 else None)
+# Get list of overexpressed gene symbols
+up_genes = res.loc[res["direction"] == "Up", "gene_symbol"].dropna().tolist()
+# Save as txt
+with open("results/up_genes.txt", "w") as f:
+    for gene in up_genes:
+        f.write(gene + "\n")
+# Get list of underexpressed gene symbols
+down_genes = res.loc[res["direction"] == "Down", "gene_symbol"].dropna().tolist()
+# Save as txt
+with open("results/down_genes.txt", "w") as f:
+    for gene in down_genes:
+        f.write(gene + "\n")

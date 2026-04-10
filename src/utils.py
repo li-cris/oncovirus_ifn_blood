@@ -1,4 +1,5 @@
 import pandas as pd
+import requests
 from .sctype_utils import gene_sets_prepare, sctype_score, process_cluster
 from dataclasses import dataclass
 @dataclass
@@ -56,3 +57,23 @@ def run_sctype_scoring(scRNAseqData, adata, SctypeOptions: ScTypeOptions = None)
         adata.obs.loc[adata.obs[SctypeOptions.cluster_key] == cluster, 'sctype_classification'] = cl_type_value
 
     return adata
+
+
+def ensembl_to_hgnc(ensembl_id, session=None, timeout=30, cache=None):
+    """Map Ensembl gene ID to HGNC symbol using HGNC REST API. Really slow!"""
+    if cache is None:
+        cache = {}
+    
+    if ensembl_id in cache:
+        return cache[ensembl_id]
+    
+    url = f"https://rest.genenames.org/search/ensembl_gene_id/{ensembl_id}"
+    headers = {"Accept": "application/json"}
+    http = session or requests
+    
+    response = http.get(url, headers=headers, timeout=timeout)
+    response.raise_for_status()
+    result = response.json()
+    
+    cache[ensembl_id] = result
+    return result

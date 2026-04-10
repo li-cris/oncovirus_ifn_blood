@@ -12,3 +12,4 @@ biopython
 tqdm
 pydeseq2
 ipykernel
+lxml
